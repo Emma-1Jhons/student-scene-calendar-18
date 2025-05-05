@@ -45,7 +45,13 @@ const Index = () => {
 
   // Handle adding a new event
   const handleAddEvent = (eventData: EventFormData) => {
-    const newEvent = addEvent(eventData);
+    // Use the image from the file or the URL
+    const newEventData = { ...eventData };
+    
+    // If we have an image file, it's already converted to data URL in the form
+    // So we don't need to do anything special here, just pass along the data
+    
+    const newEvent = addEvent(newEventData);
     setEvents(prev => [...prev, newEvent]);
     toast({
       title: "Event created!",

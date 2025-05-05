@@ -22,4 +22,5 @@ export interface EventFormData {
   endTime?: string;
   location?: string;
   image?: string;
+  imageFile?: File; // Add this field to store the File object
 }
