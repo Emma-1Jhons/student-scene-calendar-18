@@ -23,7 +23,9 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = window.location.href;
+    // Create the full URL with the calendar route
+    const baseUrl = window.location.origin;
+    const url = `${baseUrl}/calendar`;
     
     navigator.clipboard.writeText(url).then(() => {
       toast({
@@ -48,7 +50,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
             onClick={() => onClick(event)}
           >
             {event.image && <Images size={12} className="shrink-0" />}
-            <span className="truncate">{event.title}</span>
+            <span className="truncate font-semibold text-black">{event.title}</span>
           </div>
         </HoverCardTrigger>
         <HoverCardContent className="w-64 p-2" align="start">

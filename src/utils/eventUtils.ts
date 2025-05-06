@@ -59,7 +59,7 @@ const MOCK_EVENTS: Event[] = [
 // Local storage key
 const EVENTS_STORAGE_KEY = "student_events";
 // Remote storage key (using a shared localStorage key to simulate server)
-const REMOTE_STORAGE_KEY = "shared_student_events";
+const REMOTE_STORAGE_KEY = "shared_student_events_v2"; // Changed key to force refresh
 
 // Parse dates from JSON
 const parseDatesFromJSON = (events: any[]): Event[] => {
@@ -107,13 +107,24 @@ export const saveEvents = (events: Event[]): void => {
 export const saveToRemoteStorage = async (events: Event[]): Promise<void> => {
   return new Promise((resolve, reject) => {
     try {
-      // Simulate network delay to make it more realistic
-      setTimeout(() => {
-        // Using sessionStorage would limit to this tab only, so we use localStorage
-        localStorage.setItem(REMOTE_STORAGE_KEY, JSON.stringify(events));
-        console.log(`${events.length} events saved to remote storage successfully`);
-        resolve();
-      }, 200);
+      // Make sure events is valid before saving
+      if (!events || !Array.isArray(events)) {
+        console.error("Invalid events data:", events);
+        reject(new Error("Invalid events data"));
+        return;
+      }
+      
+      // Make a clean copy to prevent circular references
+      const cleanEvents = JSON.parse(JSON.stringify(events));
+      
+      // Using localStorage to simulate shared storage
+      localStorage.setItem(REMOTE_STORAGE_KEY, JSON.stringify(cleanEvents));
+      console.log(`${cleanEvents.length} events saved to remote storage successfully`);
+      
+      // Also store in sessionStorage as backup
+      sessionStorage.setItem(REMOTE_STORAGE_KEY, JSON.stringify(cleanEvents));
+      
+      resolve();
     } catch (error) {
       console.error('Error saving to remote storage:', error);
       reject(error);
@@ -124,32 +135,48 @@ export const saveToRemoteStorage = async (events: Event[]): Promise<void> => {
 export const loadFromRemoteStorage = async (): Promise<Event[]> => {
   return new Promise((resolve, reject) => {
     try {
-      // Simulate network delay
-      setTimeout(() => {
-        const remoteData = localStorage.getItem(REMOTE_STORAGE_KEY);
-        
-        if (remoteData) {
-          try {
-            const parsedEvents = JSON.parse(remoteData, (key, value) => {
-              if (key === "date" || key === "createdAt" || key === "updatedAt") {
-                return new Date(value);
-              }
-              return value;
-            });
-            
-            console.log(`${parsedEvents.length} events loaded from remote storage`);
-            resolve(parsedEvents);
-          } catch (jsonError) {
-            console.error('Error parsing remote data:', jsonError);
-            reject(jsonError);
+      const remoteData = localStorage.getItem(REMOTE_STORAGE_KEY);
+      
+      if (remoteData) {
+        try {
+          const parsedEvents = JSON.parse(remoteData, (key, value) => {
+            if (key === "date" || key === "createdAt" || key === "updatedAt") {
+              return new Date(value);
+            }
+            return value;
+          });
+          
+          console.log(`${parsedEvents.length} events loaded from remote storage`);
+          resolve(parsedEvents);
+        } catch (jsonError) {
+          console.error('Error parsing remote data:', jsonError);
+          
+          // Try to get backup from sessionStorage
+          const backupData = sessionStorage.getItem(REMOTE_STORAGE_KEY);
+          if (backupData) {
+            try {
+              const backupEvents = JSON.parse(backupData, (key, value) => {
+                if (key === "date" || key === "createdAt" || key === "updatedAt") {
+                  return new Date(value);
+                }
+                return value;
+              });
+              console.log(`Loaded ${backupEvents.length} events from backup storage`);
+              resolve(backupEvents);
+              return;
+            } catch (backupError) {
+              console.error('Error parsing backup data:', backupError);
+            }
           }
-        } else {
-          // If no remote data exists yet, initialize with mock data
-          console.log('No remote data found, initializing with mock data');
-          saveToRemoteStorage(MOCK_EVENTS);
-          resolve(MOCK_EVENTS);
+          
+          reject(jsonError);
         }
-      }, 200);
+      } else {
+        // If no remote data exists yet, initialize with mock data
+        console.log('No remote data found, initializing with mock data');
+        saveToRemoteStorage(MOCK_EVENTS);
+        resolve(MOCK_EVENTS);
+      }
     } catch (error) {
       console.error('Error loading from remote storage:', error);
       reject(error);
