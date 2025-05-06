@@ -44,25 +44,34 @@ export const useEventForm = ({ onSubmit, onClose, initialDate }: UseEventFormPro
   };
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("Image upload triggered", e.target.files);
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
     
     // Check if file is an image
     if (!file.type.startsWith('image/')) {
+      console.log("Not an image file:", file.type);
       setErrors(prev => ({ ...prev, imageFile: "Please upload an image file" }));
       return;
     }
     
     // Check file size (limit to 5MB)
     if (file.size > 5 * 1024 * 1024) {
+      console.log("File too large:", file.size);
       setErrors(prev => ({ ...prev, imageFile: "Image must be less than 5MB" }));
       return;
     }
+    
+    console.log("Processing image file:", file.name);
     
     // Create a preview
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
+        console.log("Image loaded successfully");
         setImagePreview(event.target.result as string);
         // Store both the data URL and the file
         setFormData(prev => ({ 
@@ -71,6 +80,10 @@ export const useEventForm = ({ onSubmit, onClose, initialDate }: UseEventFormPro
           imageFile: file
         }));
       }
+    };
+    reader.onerror = () => {
+      console.error("Error reading file");
+      setErrors(prev => ({ ...prev, imageFile: "Error reading file" }));
     };
     reader.readAsDataURL(file);
     
@@ -81,6 +94,7 @@ export const useEventForm = ({ onSubmit, onClose, initialDate }: UseEventFormPro
   };
   
   const clearImage = () => {
+    console.log("Clearing image");
     setImagePreview(null);
     setFormData(prev => ({ ...prev, image: "", imageFile: undefined }));
   };

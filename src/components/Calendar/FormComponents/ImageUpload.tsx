@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,40 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   error,
   imageUrlDisabled
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const handleButtonClick = () => {
+    // Trigger the hidden file input when the button is clicked
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const fileInput = fileInputRef.current;
+      if (fileInput) {
+        // Create a new event with the dropped file
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(e.dataTransfer.files[0]);
+        fileInput.files = dataTransfer.files;
+        
+        // Trigger the change event manually
+        const event = new Event('change', { bubbles: true });
+        fileInput.dispatchEvent(event);
+        
+        // Call the onImageUpload function with a synthetic event
+        onImageUpload({ target: { files: dataTransfer.files } } as any);
+      }
+    }
+  };
+  
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="space-y-2">
       <Label>Event Image</Label>
@@ -46,23 +80,30 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-input rounded-md p-6">
+          <div 
+            className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-input rounded-md p-6 cursor-pointer"
+            onClick={handleButtonClick}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
             <Upload className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Click to upload or drag and drop</p>
             <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
-            <label className="cursor-pointer mt-2">
-              <Input
-                id="imageFile"
-                name="imageFile"
-                type="file"
-                accept="image/*"
-                onChange={onImageUpload}
-                className="hidden"
-              />
-              <Button type="button" variant="secondary" size="sm">
-                Select Image
-              </Button>
-            </label>
+            <input
+              ref={fileInputRef}
+              id="imageFile"
+              name="imageFile"
+              type="file"
+              accept="image/*"
+              onChange={onImageUpload}
+              className="hidden"
+            />
+            <Button type="button" variant="secondary" size="sm" onClick={(e) => {
+              e.stopPropagation(); // Prevent the div's onClick from firing
+              handleButtonClick();
+            }}>
+              Select Image
+            </Button>
           </div>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
