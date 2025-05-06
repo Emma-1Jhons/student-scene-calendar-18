@@ -9,6 +9,8 @@ import EventsList from "@/components/Calendar/EventsList";
 import EventForm from "@/components/Calendar/EventForm";
 import EventDetails from "@/components/Calendar/EventDetails";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Share2 } from "lucide-react";
 
 const CalendarPage = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -121,6 +123,24 @@ const CalendarPage = () => {
     }
   };
 
+  // Partager le lien du calendrier
+  const handleShareLink = () => {
+    const url = window.location.href;
+    
+    navigator.clipboard.writeText(url).then(() => {
+      toast({
+        title: "Lien copié !",
+        description: "Le lien a été copié dans votre presse-papiers"
+      });
+    }).catch(() => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de copier le lien",
+        variant: "destructive"
+      });
+    });
+  };
+
   // Afficher un message de chargement
   if (isLoading) {
     return (
@@ -140,6 +160,18 @@ const CalendarPage = () => {
       <Navbar onAddEvent={() => setIsEventFormOpen(true)} />
       
       <main className="flex-1 container py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Calendrier des Événements</h1>
+          <Button 
+            onClick={handleShareLink}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Share2 size={16} />
+            <span>Partager le calendrier</span>
+          </Button>
+        </div>
+        
         <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
             <TabsTrigger value="calendar">Vue Calendrier</TabsTrigger>

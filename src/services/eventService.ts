@@ -7,8 +7,8 @@ import {
   loadFromRemoteStorage 
 } from "../utils/eventUtils";
 
-// Intervalle de synchronisation en ms (5 secondes - plus fréquent pour une meilleure réactivité)
-const SYNC_INTERVAL = 5000;
+// Intervalle de synchronisation en ms (3 secondes - plus fréquent pour une meilleure réactivité)
+const SYNC_INTERVAL = 3000;
 
 // Unique ID pour cette session du navigateur
 const SESSION_ID = Date.now().toString();
@@ -136,6 +136,9 @@ class EventService {
       }
     }
     
+    // Forcer une synchronisation avec le stockage distant pour avoir les données les plus récentes
+    await this.syncWithRemoteStorage();
+    
     return [...this.events];
   }
 
@@ -146,6 +149,9 @@ class EventService {
 
   // Ajouter un nouvel événement
   public async addEvent(eventData: EventFormData): Promise<Event> {
+    // Synchroniser d'abord pour avoir les événements les plus récents
+    await this.syncWithRemoteStorage();
+    
     const newEvent: Event = {
       ...eventData,
       id: `${SESSION_ID}-${Date.now()}`, // ID unique avec préfixe de session
@@ -184,6 +190,9 @@ class EventService {
 
   // Supprimer un événement
   public async deleteEvent(id: string): Promise<void> {
+    // Synchroniser d'abord pour avoir les événements les plus récents
+    await this.syncWithRemoteStorage();
+    
     // Obtenir les événements actuels du stockage distant
     let currentEvents: Event[];
     try {

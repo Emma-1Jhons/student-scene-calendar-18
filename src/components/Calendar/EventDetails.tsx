@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Trash } from "lucide-react";
+import { Calendar, Clock, MapPin, Trash, Share2 } from "lucide-react";
 import { Event } from "@/types/eventTypes";
 import { formatEventDate, formatEventTime } from "@/utils/eventUtils";
 import { 
@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface EventDetailsProps {
   event: Event | null;
@@ -37,6 +38,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   onDelete
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const { toast } = useToast();
   
   const handleDelete = () => {
     if (event) {
@@ -44,6 +46,23 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       setShowDeleteDialog(false);
       onClose();
     }
+  };
+  
+  const handleShare = () => {
+    const url = window.location.href;
+    
+    navigator.clipboard.writeText(url).then(() => {
+      toast({
+        title: "Lien copié !",
+        description: "Le lien a été copié dans votre presse-papiers"
+      });
+    }).catch(() => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de copier le lien",
+        variant: "destructive"
+      });
+    });
   };
 
   if (!event) return null;
@@ -58,14 +77,23 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl">{event.title}</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-black">{event.title}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6 py-4">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <Badge variant="outline" className="text-sm">
                 {event.clubName}
               </Badge>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleShare}
+                className="flex items-center gap-1"
+              >
+                <Share2 size={14} />
+                <span>Partager</span>
+              </Button>
             </div>
             
             {event.image && (

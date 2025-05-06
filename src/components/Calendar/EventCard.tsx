@@ -2,10 +2,12 @@
 import React from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, Images } from "lucide-react";
+import { Clock, MapPin, Images, Share2 } from "lucide-react";
 import { Event } from "@/types/eventTypes";
 import { formatEventDate, formatEventTime } from "@/utils/eventUtils";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 interface EventCardProps {
   event: Event;
@@ -19,12 +21,30 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
     ? `${formatEventTime(event.startTime)} ${event.endTime ? `- ${formatEventTime(event.endTime)}` : ""}`
     : "All day";
 
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = window.location.href;
+    
+    navigator.clipboard.writeText(url).then(() => {
+      toast({
+        title: "Lien copié !",
+        description: "Le lien a été copié dans votre presse-papiers"
+      });
+    }).catch(() => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de copier le lien",
+        variant: "destructive"
+      });
+    });
+  };
+
   if (compact) {
     return (
       <HoverCard>
         <HoverCardTrigger asChild>
           <div 
-            className="px-2 py-1 mb-1 text-xs font-medium bg-primary/10 text-primary-foreground rounded cursor-pointer hover:bg-primary/20 transition-colors truncate flex items-center gap-1"
+            className="px-2 py-1 mb-1 text-xs font-bold text-black bg-primary/10 rounded cursor-pointer hover:bg-primary/20 transition-colors truncate flex items-center gap-1"
             onClick={() => onClick(event)}
           >
             {event.image && <Images size={12} className="shrink-0" />}
@@ -32,7 +52,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
           </div>
         </HoverCardTrigger>
         <HoverCardContent className="w-64 p-2" align="start">
-          <h4 className="font-medium text-sm mb-1">{event.title}</h4>
+          <h4 className="font-bold text-sm mb-1 text-black">{event.title}</h4>
           <p className="text-xs text-muted-foreground mb-2">{formatEventDate(event.date)} • {timeDisplay}</p>
           
           {event.image && (
@@ -49,15 +69,28 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
             <p className="text-xs text-muted-foreground line-clamp-2">{event.description}</p>
           )}
           
-          <button 
-            className="w-full mt-2 text-xs text-primary hover:underline"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick(event);
-            }}
-          >
-            Voir les détails
-          </button>
+          <div className="flex justify-between items-center mt-2">
+            <Button 
+              variant="link"
+              size="sm"
+              className="p-0 text-xs text-primary hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick(event);
+              }}
+            >
+              Voir les détails
+            </Button>
+            
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={handleShare}
+            >
+              <Share2 size={14} />
+            </Button>
+          </div>
         </HoverCardContent>
       </HoverCard>
     );
@@ -80,7 +113,15 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
       
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start">
-          <h3 className="font-semibold text-lg line-clamp-2">{event.title}</h3>
+          <h3 className="font-bold text-lg line-clamp-2 text-black">{event.title}</h3>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 ml-2 shrink-0"
+            onClick={handleShare}
+          >
+            <Share2 size={16} />
+          </Button>
         </div>
         <Badge variant="outline" className="mt-1 text-xs">
           {event.clubName}
