@@ -2,9 +2,10 @@
 import React from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin } from "lucide-react";
+import { Clock, MapPin, Images } from "lucide-react";
 import { Event } from "@/types/eventTypes";
 import { formatEventDate, formatEventTime } from "@/utils/eventUtils";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 interface EventCardProps {
   event: Event;
@@ -20,12 +21,46 @@ const EventCard: React.FC<EventCardProps> = ({ event, onClick, compact = false }
 
   if (compact) {
     return (
-      <div 
-        className="px-2 py-1 mb-1 text-xs font-medium bg-primary/10 text-primary-foreground rounded cursor-pointer hover:bg-primary/20 transition-colors truncate"
-        onClick={() => onClick(event)}
-      >
-        {event.title}
-      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <div 
+            className="px-2 py-1 mb-1 text-xs font-medium bg-primary/10 text-primary-foreground rounded cursor-pointer hover:bg-primary/20 transition-colors truncate flex items-center gap-1"
+          >
+            {event.image && <Images size={12} className="shrink-0" />}
+            <span className="truncate">{event.title}</span>
+          </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" align="start">
+          <div className="p-2">
+            <h4 className="font-medium text-sm mb-1">{event.title}</h4>
+            <p className="text-xs text-muted-foreground mb-2">{formatEventDate(event.date)} • {timeDisplay}</p>
+            
+            {event.image && (
+              <div className="aspect-video overflow-hidden rounded mb-2">
+                <img 
+                  src={event.image} 
+                  alt={event.title} 
+                  className="w-full h-full object-cover" 
+                />
+              </div>
+            )}
+            
+            {event.description && (
+              <p className="text-xs text-muted-foreground line-clamp-2">{event.description}</p>
+            )}
+            
+            <button 
+              className="w-full mt-2 text-xs text-primary hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick(event);
+              }}
+            >
+              Voir les détails
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   }
 
