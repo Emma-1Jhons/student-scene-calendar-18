@@ -3,6 +3,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { CalendarPlus, Home } from "lucide-react";
 import { Link } from "react-router-dom";
+import SyncIndicator from "./SyncIndicator";
 
 interface NavbarProps {
   onAddEvent: () => void;
@@ -19,18 +20,22 @@ const Navbar: React.FC<NavbarProps> = ({ onAddEvent }) => {
             className="h-8 w-auto"
           />
           <h1 className="text-xl font-bold">ENSAK Events Calendar</h1>
+          <div className="hidden sm:flex">
+            <SyncIndicator />
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
           <Button variant="ghost" asChild>
             <Link to="/" className="flex items-center gap-2">
               <Home size={18} />
-              <span>Home</span>
+              <span className="hidden sm:inline">Accueil</span>
             </Link>
           </Button>
           <Button onClick={onAddEvent} className="flex items-center gap-2">
             <CalendarPlus size={18} />
-            <span>Add Event</span>
+            <span className="hidden sm:inline">Ajouter</span>
+            <span className="sm:hidden">+</span>
           </Button>
         </div>
       </div>

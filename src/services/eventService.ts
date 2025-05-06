@@ -1,4 +1,3 @@
-
 import { Event, EventFormData } from "../types/eventTypes";
 import { 
   getEvents, 
@@ -6,15 +5,11 @@ import {
   saveToRemoteStorage, 
   loadFromRemoteStorage 
 } from "../utils/eventUtils";
+import AirtableService from "./airtableService";
 
-// Make synchronization more frequent (1.5 seconds - for better real-time experience)
-const SYNC_INTERVAL = 1500;
-
-// Unique ID for this browser session
-const SESSION_ID = Date.now().toString();
-
-// Last sync timestamp
-let lastSyncTime = 0;
+// Sync interval en millisecondes
+const SYNC_INTERVAL = 10000; // 10 secondes pour voir plus rapidement l'état
+const INITIAL_SYNC_DELAY = 500; // Délai avant la première synchronisation
 
 // Singleton class for event management and synchronization
 class EventService {
@@ -23,8 +18,22 @@ class EventService {
   private syncInterval: NodeJS.Timeout | null = null;
   private isInitialized: boolean = false;
   private syncInProgress: boolean = false;
+  private airtableService: AirtableService;
+  private useAirtable: boolean = false;
 
   private constructor() {
+    this.airtableService = AirtableService.getInstance();
+    this.useAirtable = this.airtableService.isConfigured();
+    
+    // Écouter les changements de configuration Airtable
+    this.airtableService.addConfigListener((isConfigured) => {
+      this.useAirtable = isConfigured;
+      if (isConfigured) {
+        console.log("Airtable configuré, synchronisation des événements...");
+        this.syncEventsFromAirtable();
+      }
+    });
+    
     this.loadEvents();
     this.startSyncInterval();
     
@@ -46,30 +55,36 @@ class EventService {
   // Initial event loading
   private async loadEvents(): Promise<void> {
     try {
-      console.log("Loading events from remote storage...");
+      console.log("Loading events...");
       
-      // Always try to load from remote storage first
-      const remoteEvents = await loadFromRemoteStorage();
-      
-      if (remoteEvents && remoteEvents.length > 0) {
-        console.log(`${remoteEvents.length} events loaded from remote storage`);
-        this.events = remoteEvents;
-        
-        // Save locally for offline access
-        saveEvents(remoteEvents);
+      if (this.useAirtable) {
+        // If Airtable is configured, load from there
+        await this.syncEventsFromAirtable();
       } else {
-        // Fallback to local storage
-        const localEvents = getEvents();
-        this.events = localEvents;
+        console.log("Loading events from remote storage...");
         
-        // Push local events to remote storage
-        if (localEvents.length > 0) {
-          await saveToRemoteStorage(localEvents);
-          console.log(`${localEvents.length} local events saved to remote storage`);
+        // Always try to load from remote storage first
+        const remoteEvents = await loadFromRemoteStorage();
+        
+        if (remoteEvents && remoteEvents.length > 0) {
+          console.log(`${remoteEvents.length} events loaded from remote storage`);
+          this.events = remoteEvents;
+          
+          // Save locally for offline access
+          saveEvents(remoteEvents);
+        } else {
+          // Fallback to local storage
+          const localEvents = getEvents();
+          this.events = localEvents;
+          
+          // Push local events to remote storage
+          if (localEvents.length > 0) {
+            await saveToRemoteStorage(localEvents);
+            console.log(`${localEvents.length} local events saved to remote storage`);
+          }
         }
       }
       
-      lastSyncTime = Date.now();
       this.isInitialized = true;
     } catch (error) {
       console.error("Error loading events:", error);
@@ -82,13 +97,13 @@ class EventService {
   // Window focus handler - sync immediately
   private handleWindowFocus = async (): Promise<void> => {
     console.log("Window received focus, syncing data...");
-    await this.syncWithRemoteStorage();
+    await this.syncWithDataSource();
   }
   
   // Online status handler - sync when coming back online
   private handleOnline = async (): Promise<void> => {
     console.log("Device is online, syncing data...");
-    await this.syncWithRemoteStorage();
+    await this.syncWithDataSource();
   }
 
   // Start periodic synchronization
@@ -98,20 +113,41 @@ class EventService {
     }
     
     this.syncInterval = setInterval(async () => {
-      await this.syncWithRemoteStorage();
+      await this.syncWithDataSource();
     }, SYNC_INTERVAL);
     
     // Sync when page becomes visible
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible') {
         console.log("Page visible, syncing data...");
-        await this.syncWithRemoteStorage();
+        await this.syncWithDataSource();
       }
     });
   }
 
-  // Sync with remote storage
-  private async syncWithRemoteStorage(): Promise<void> {
+  // Synchroniser les données avec Airtable
+  private async syncEventsFromAirtable(): Promise<void> {
+    if (!this.airtableService.isConfigured()) {
+      return;
+    }
+    
+    try {
+      const airtableEvents = await this.airtableService.fetchAllEvents();
+      
+      if (airtableEvents && airtableEvents.length >= 0) {
+        console.log(`${airtableEvents.length} events loaded from Airtable`);
+        this.events = airtableEvents;
+        
+        // Also save to local storage for offline use
+        saveEvents(airtableEvents);
+      }
+    } catch (error) {
+      console.error("Error synchronizing with Airtable:", error);
+    }
+  }
+
+  // Sync with data source (Airtable or remote storage)
+  private async syncWithDataSource(): Promise<void> {
     // Prevent concurrent syncs
     if (this.syncInProgress) {
       return;
@@ -120,21 +156,23 @@ class EventService {
     this.syncInProgress = true;
     
     try {
-      const remoteEvents = await loadFromRemoteStorage();
-      
-      if (remoteEvents && Array.isArray(remoteEvents)) {
-        // For debugging
-        console.log(`Synchronization: ${remoteEvents.length} events found in remote storage`);
+      if (this.useAirtable) {
+        await this.syncEventsFromAirtable();
+      } else {
+        const remoteEvents = await loadFromRemoteStorage();
         
-        // Always update with remote data
-        this.events = remoteEvents;
-        saveEvents(remoteEvents);
-        console.log("Local data updated with remote data");
+        if (remoteEvents && Array.isArray(remoteEvents)) {
+          // For debugging
+          console.log(`Synchronization: ${remoteEvents.length} events found in remote storage`);
+          
+          // Always update with remote data
+          this.events = remoteEvents;
+          saveEvents(remoteEvents);
+          console.log("Local data updated with remote data");
+        }
       }
-      
-      lastSyncTime = Date.now();
     } catch (error) {
-      console.error("Error syncing with remote storage:", error);
+      console.error("Error syncing with data source:", error);
     } finally {
       this.syncInProgress = false;
     }
@@ -145,16 +183,16 @@ class EventService {
     // If not yet initialized, wait a bit
     if (!this.isInitialized) {
       console.log("Service not initialized, waiting...");
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, INITIAL_SYNC_DELAY));
       
       // If still not initialized, force a sync
       if (!this.isInitialized) {
-        await this.syncWithRemoteStorage();
+        await this.syncWithDataSource();
       }
     }
     
-    // Force a sync with remote storage to get latest data
-    await this.syncWithRemoteStorage();
+    // Force a sync with data source to get latest data
+    await this.syncWithDataSource();
     
     return [...this.events];
   }
@@ -166,12 +204,26 @@ class EventService {
 
   // Add a new event
   public async addEvent(eventData: EventFormData): Promise<Event> {
+    // If using Airtable, add to Airtable
+    if (this.useAirtable) {
+      const newEvent = await this.airtableService.createEvent(eventData);
+      
+      if (newEvent) {
+        // Sync after adding to make sure we have the latest data
+        await this.syncEventsFromAirtable();
+        return newEvent;
+      } else {
+        throw new Error("Failed to create event in Airtable");
+      }
+    }
+    
+    // Otherwise use local storage + browser sync like before
     // Sync first to get latest events
-    await this.syncWithRemoteStorage();
+    await this.syncWithDataSource();
     
     const newEvent: Event = {
       ...eventData,
-      id: `${SESSION_ID}-${Date.now()}`, // Unique ID with session prefix
+      id: `event-${Date.now()}`, // Unique ID
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -195,7 +247,7 @@ class EventService {
       console.log("New event synced to remote storage");
       
       // Verify the save by loading again
-      await this.syncWithRemoteStorage();
+      await this.syncWithDataSource();
       
       return newEvent;
     } catch (error) {
@@ -206,8 +258,22 @@ class EventService {
 
   // Delete an event
   public async deleteEvent(id: string): Promise<void> {
+    // If using Airtable, delete from Airtable
+    if (this.useAirtable) {
+      const success = await this.airtableService.deleteEvent(id);
+      
+      if (success) {
+        // Sync after deleting to make sure we have the latest data
+        await this.syncEventsFromAirtable();
+        return;
+      } else {
+        throw new Error("Failed to delete event from Airtable");
+      }
+    }
+    
+    // Otherwise use local storage + browser sync like before
     // Sync first to get latest events
-    await this.syncWithRemoteStorage();
+    await this.syncWithDataSource();
     
     try {
       // Get current events from remote storage
@@ -227,7 +293,7 @@ class EventService {
       console.log("Event deletion synced with remote storage");
       
       // Verify the delete by loading again
-      await this.syncWithRemoteStorage();
+      await this.syncWithDataSource();
     } catch (error) {
       console.error("Error saving to remote storage:", error);
       throw error;
@@ -237,7 +303,7 @@ class EventService {
   // Force immediate sync
   public async forceSyncNow(): Promise<void> {
     console.log("Forcing synchronization...");
-    await this.syncWithRemoteStorage();
+    await this.syncWithDataSource();
   }
   
   // Clean up resources when destroying
