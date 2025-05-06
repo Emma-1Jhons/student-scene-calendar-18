@@ -30,8 +30,9 @@ const CalendarPage = () => {
       try {
         // Forcer une synchronisation au chargement de la page
         await eventService.forceSyncNow();
-        const allEvents = eventService.getAllEvents();
+        const allEvents = await eventService.getAllEvents();
         setEvents(allEvents);
+        console.log(`Chargé ${allEvents.length} événements`);
       } catch (error) {
         console.error("Erreur lors du chargement des événements:", error);
         toast({
@@ -47,11 +48,21 @@ const CalendarPage = () => {
     loadEvents();
     
     // Configurer une actualisation périodique des événements
-    const refreshInterval = setInterval(() => {
-      setEvents(eventService.getAllEvents());
-    }, 60000); // Rafraîchir toutes les minutes
+    const refreshInterval = setInterval(async () => {
+      try {
+        const refreshedEvents = await eventService.getAllEvents();
+        setEvents(refreshedEvents);
+        console.log(`Rafraîchi avec ${refreshedEvents.length} événements`);
+      } catch (error) {
+        console.error("Erreur lors du rafraîchissement des événements:", error);
+      }
+    }, 15000); // Rafraîchir toutes les 15 secondes
     
-    return () => clearInterval(refreshInterval);
+    return () => {
+      clearInterval(refreshInterval);
+      // Nettoyer le service d'événements
+      eventService.cleanup();
+    };
   }, [toast]);
 
   // Clic sur une date dans le calendrier
@@ -70,7 +81,9 @@ const CalendarPage = () => {
   const handleAddEvent = async (eventData: EventFormData) => {
     try {
       const newEvent = await eventService.addEvent(eventData);
-      setEvents(prev => [...prev, newEvent]);
+      // Rafraîchir tous les événements pour s'assurer d'avoir les données les plus récentes
+      const refreshedEvents = await eventService.getAllEvents();
+      setEvents(refreshedEvents);
       
       toast({
         title: "Événement créé!",
@@ -90,7 +103,9 @@ const CalendarPage = () => {
   const handleDeleteEvent = async (id: string) => {
     try {
       await eventService.deleteEvent(id);
-      setEvents(prev => prev.filter(event => event.id !== id));
+      // Rafraîchir tous les événements pour s'assurer d'avoir les données les plus récentes
+      const refreshedEvents = await eventService.getAllEvents();
+      setEvents(refreshedEvents);
       
       toast({
         title: "Événement supprimé",

@@ -7,8 +7,8 @@ import {
   loadFromRemoteStorage 
 } from "../utils/eventUtils";
 
-// Intervalle de synchronisation en ms (30 secondes)
-const SYNC_INTERVAL = 30000;
+// Intervalle de synchronisation en ms (5 secondes - plus fréquent pour une meilleure réactivité)
+const SYNC_INTERVAL = 5000;
 
 // Unique ID pour cette session du navigateur
 const SESSION_ID = Date.now().toString();
@@ -21,10 +21,17 @@ class EventService {
   private static instance: EventService;
   private events: Event[] = [];
   private syncInterval: NodeJS.Timeout | null = null;
+  private isInitialized: boolean = false;
 
   private constructor() {
     this.loadEvents();
     this.startSyncInterval();
+    
+    // Ajouter un événement au window pour indiquer que cette instance est prête
+    window.addEventListener('focus', this.handleWindowFocus);
+    
+    // Pour déboguer
+    console.log("EventService instance créée");
   }
 
   public static getInstance(): EventService {
@@ -38,12 +45,16 @@ class EventService {
   private async loadEvents(): Promise<void> {
     try {
       console.log("Chargement des événements depuis le stockage distant...");
+      
+      // Toujours essayer de charger depuis le stockage distant en premier
       const remoteEvents = await loadFromRemoteStorage();
+      
       if (remoteEvents && remoteEvents.length > 0) {
+        console.log(`${remoteEvents.length} événements chargés depuis le stockage distant`);
         this.events = remoteEvents;
+        
         // Sauvegarde locale pour l'accès hors ligne
         saveEvents(remoteEvents);
-        console.log(`${remoteEvents.length} événements chargés depuis le stockage distant`);
       } else {
         // Fallback sur le stockage local
         const localEvents = getEvents();
@@ -55,12 +66,21 @@ class EventService {
           console.log(`${localEvents.length} événements locaux sauvegardés dans le stockage distant`);
         }
       }
+      
       lastSyncTime = Date.now();
+      this.isInitialized = true;
     } catch (error) {
       console.error("Erreur lors du chargement des événements:", error);
       // Fallback sur les événements locaux
       this.events = getEvents();
+      this.isInitialized = true;
     }
+  }
+
+  // Gestionnaire pour focus de fenêtre - synchroniser immédiatement
+  private handleWindowFocus = async (): Promise<void> => {
+    console.log("Fenêtre a reçu le focus, synchronisation des données...");
+    await this.syncWithRemoteStorage();
   }
 
   // Synchronisation périodique avec le stockage distant
@@ -76,6 +96,7 @@ class EventService {
     // Aussi synchroniser quand la page devient visible
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible') {
+        console.log("Page visible, synchronisation des données...");
         await this.syncWithRemoteStorage();
       }
     });
@@ -87,20 +108,13 @@ class EventService {
       const remoteEvents = await loadFromRemoteStorage();
       
       if (remoteEvents && Array.isArray(remoteEvents)) {
-        // Vérifier si les données distantes sont plus récentes
-        const remoteHasNewer = remoteEvents.some(event => {
-          // Trouver l'événement correspondant localement
-          const localEvent = this.events.find(e => e.id === event.id);
-          // Si l'événement n'existe pas localement ou a été mis à jour à distance
-          return !localEvent || new Date(event.updatedAt) > new Date(localEvent.updatedAt);
-        });
+        // Pour déboguer
+        console.log(`Synchronisation: ${remoteEvents.length} événements trouvés dans le stockage distant`);
         
-        // Si les données distantes sont plus récentes, mettre à jour localement
-        if (remoteHasNewer) {
-          console.log("Nouvelles données trouvées dans le stockage distant, mise à jour locale...");
-          this.events = remoteEvents;
-          saveEvents(remoteEvents);
-        }
+        // Toujours mettre à jour avec les données distantes
+        this.events = remoteEvents;
+        saveEvents(remoteEvents);
+        console.log("Données locales mises à jour avec les données distantes");
       }
       
       lastSyncTime = Date.now();
@@ -109,8 +123,24 @@ class EventService {
     }
   }
 
-  // Obtenir tous les événements
-  public getAllEvents(): Event[] {
+  // Obtenir tous les événements, avec une attente si nécessaire
+  public async getAllEvents(): Promise<Event[]> {
+    // Si nous ne sommes pas encore initialisés, attendez un peu
+    if (!this.isInitialized) {
+      console.log("Service non initialisé, attente...");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Si toujours pas initialisé, forcer une synchronisation
+      if (!this.isInitialized) {
+        await this.syncWithRemoteStorage();
+      }
+    }
+    
+    return [...this.events];
+  }
+
+  // Obtenir tous les événements (synchrone pour la compatibilité)
+  public getAllEventsSync(): Event[] {
     return [...this.events];
   }
 
@@ -123,14 +153,27 @@ class EventService {
       updatedAt: new Date()
     };
     
-    this.events.push(newEvent);
-    
-    // Sauvegarder localement
-    saveEvents(this.events);
-    
-    // Synchroniser avec le stockage distant
+    // Obtenir les événements actuels du stockage distant
+    let currentEvents: Event[];
     try {
-      await saveToRemoteStorage(this.events);
+      const remoteEvents = await loadFromRemoteStorage();
+      currentEvents = Array.isArray(remoteEvents) && remoteEvents.length > 0 
+        ? remoteEvents 
+        : this.events;
+    } catch (error) {
+      console.error("Erreur lors du chargement des événements distants:", error);
+      currentEvents = this.events;
+    }
+    
+    // Ajouter le nouvel événement
+    const updatedEvents = [...currentEvents, newEvent];
+    this.events = updatedEvents;
+    
+    // Sauvegarder localement et à distance
+    saveEvents(updatedEvents);
+    
+    try {
+      await saveToRemoteStorage(updatedEvents);
       console.log("Nouvel événement synchronisé avec le stockage distant");
     } catch (error) {
       console.error("Erreur lors de la sauvegarde dans le stockage distant:", error);
@@ -141,14 +184,27 @@ class EventService {
 
   // Supprimer un événement
   public async deleteEvent(id: string): Promise<void> {
-    this.events = this.events.filter(event => event.id !== id);
-    
-    // Sauvegarder localement
-    saveEvents(this.events);
-    
-    // Synchroniser avec le stockage distant
+    // Obtenir les événements actuels du stockage distant
+    let currentEvents: Event[];
     try {
-      await saveToRemoteStorage(this.events);
+      const remoteEvents = await loadFromRemoteStorage();
+      currentEvents = Array.isArray(remoteEvents) && remoteEvents.length > 0 
+        ? remoteEvents 
+        : this.events;
+    } catch (error) {
+      console.error("Erreur lors du chargement des événements distants:", error);
+      currentEvents = this.events;
+    }
+    
+    // Filtrer l'événement à supprimer
+    const updatedEvents = currentEvents.filter(event => event.id !== id);
+    this.events = updatedEvents;
+    
+    // Sauvegarder localement et à distance
+    saveEvents(updatedEvents);
+    
+    try {
+      await saveToRemoteStorage(updatedEvents);
       console.log("Suppression d'événement synchronisée avec le stockage distant");
     } catch (error) {
       console.error("Erreur lors de la sauvegarde dans le stockage distant:", error);
@@ -157,7 +213,16 @@ class EventService {
 
   // Force une synchronisation immédiate
   public async forceSyncNow(): Promise<void> {
+    console.log("Forçage de la synchronisation...");
     await this.syncWithRemoteStorage();
+  }
+  
+  // Nettoyer les ressources lors de la destruction
+  public cleanup(): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+    }
+    window.removeEventListener('focus', this.handleWindowFocus);
   }
 }
 
