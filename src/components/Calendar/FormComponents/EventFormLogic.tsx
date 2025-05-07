@@ -114,15 +114,32 @@ export const useEventForm = ({ onSubmit, onClose, initialDate }: UseEventFormPro
       newErrors.date = "Date is required";
     }
     
-    // Validate time format if provided
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    
-    if (formData.startTime && !timeRegex.test(formData.startTime)) {
-      newErrors.startTime = "Use format HH:MM (24-hour)";
+    if (!formData.startTime) {
+      newErrors.startTime = "Start time is required";
+    } else {
+      // Validate time format if provided
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(formData.startTime)) {
+        newErrors.startTime = "Use format HH:MM (24-hour)";
+      }
     }
     
-    if (formData.endTime && !timeRegex.test(formData.endTime)) {
-      newErrors.endTime = "Use format HH:MM (24-hour)";
+    if (!formData.endTime) {
+      newErrors.endTime = "End time is required";
+    } else {
+      // Validate time format if provided
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(formData.endTime)) {
+        newErrors.endTime = "Use format HH:MM (24-hour)";
+      }
+    }
+    
+    if (!formData.location || formData.location.trim() === '') {
+      newErrors.location = "Location is required";
+    }
+    
+    if (!formData.description || formData.description.trim() === '') {
+      newErrors.description = "Description is required";
     }
     
     setErrors(newErrors);
@@ -162,7 +179,7 @@ export const useEventForm = ({ onSubmit, onClose, initialDate }: UseEventFormPro
     imagePreview,
     handleChange,
     handleDateChange,
-    handleImageUpload,
+    handleImageUpload: handleImageUpload,
     clearImage,
     handleSubmit
   };

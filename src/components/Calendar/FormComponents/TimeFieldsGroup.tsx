@@ -9,6 +9,7 @@ interface TimeFieldsGroupProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   startTimeError?: string;
   endTimeError?: string;
+  required?: boolean;
 }
 
 const TimeFieldsGroup: React.FC<TimeFieldsGroupProps> = ({
@@ -16,12 +17,13 @@ const TimeFieldsGroup: React.FC<TimeFieldsGroupProps> = ({
   endTime,
   onChange,
   startTimeError,
-  endTimeError
+  endTimeError,
+  required = false
 }) => {
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="startTime">Start Time (HH:MM)</Label>
+        <Label htmlFor="startTime" className={required ? "required" : ""}>Start Time (HH:MM)</Label>
         <Input
           id="startTime"
           name="startTime"
@@ -29,12 +31,13 @@ const TimeFieldsGroup: React.FC<TimeFieldsGroupProps> = ({
           onChange={onChange}
           placeholder="e.g. 14:30"
           className={startTimeError ? "border-destructive" : ""}
+          required={required}
         />
         {startTimeError && <p className="text-sm text-destructive">{startTimeError}</p>}
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="endTime">End Time (HH:MM)</Label>
+        <Label htmlFor="endTime" className={required ? "required" : ""}>End Time (HH:MM)</Label>
         <Input
           id="endTime"
           name="endTime"
@@ -42,6 +45,7 @@ const TimeFieldsGroup: React.FC<TimeFieldsGroupProps> = ({
           onChange={onChange}
           placeholder="e.g. 16:00"
           className={endTimeError ? "border-destructive" : ""}
+          required={required}
         />
         {endTimeError && <p className="text-sm text-destructive">{endTimeError}</p>}
       </div>

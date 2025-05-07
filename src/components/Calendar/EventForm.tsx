@@ -77,6 +77,7 @@ const EventForm: React.FC<EventFormProps> = ({
             onChange={handleChange}
             startTimeError={errors.startTime}
             endTimeError={errors.endTime}
+            required={true}
           />
           
           <TextField
@@ -86,6 +87,8 @@ const EventForm: React.FC<EventFormProps> = ({
             value={formData.location || ""}
             onChange={handleChange}
             placeholder="Enter event location"
+            required
+            error={errors.location}
           />
           
           <TextField
@@ -97,6 +100,8 @@ const EventForm: React.FC<EventFormProps> = ({
             placeholder="Enter event description"
             multiline
             rows={3}
+            required
+            error={errors.description}
           />
           
           <ImageUpload
