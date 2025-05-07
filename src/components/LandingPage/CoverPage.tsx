@@ -12,7 +12,7 @@ const CoverPage: React.FC = () => {
           <div className="flex flex-col items-center space-y-4">
             <img 
               src="/lovable-uploads/d50f5daa-4070-437e-a1af-9fb7ac666d49.png" 
-              alt="ENSA Kenitra Logo" 
+              alt="Logo ENSA Kenitra" 
               className="h-24 w-auto mb-4"
             />
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">

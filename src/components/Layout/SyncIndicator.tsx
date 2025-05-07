@@ -14,7 +14,7 @@ const SyncIndicator = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
-    // Test la connexion à Supabase
+    // Test connection to Supabase
     const testConnection = async () => {
       try {
         const { error } = await supabase.from('events').select('count', { count: 'exact', head: true });
@@ -24,7 +24,7 @@ const SyncIndicator = () => {
       }
     };
     
-    // Tester la connexion périodiquement
+    // Test connection periodically
     testConnection();
     const interval = setInterval(testConnection, 30000);
     
@@ -35,22 +35,22 @@ const SyncIndicator = () => {
     };
   }, []);
   
-  // Statut de synchronisation
+  // Sync status
   let icon;
   let label;
   let colorClass;
   
   if (!isOnline) {
     icon = <WifiOff className="h-4 w-4" />;
-    label = "Hors ligne";
+    label = "Offline";
     colorClass = "text-yellow-600 bg-yellow-100";
   } else if (!isConnected) {
     icon = <Loader2 className="h-4 w-4 animate-spin" />;
-    label = "Connexion...";
+    label = "Connecting...";
     colorClass = "text-blue-600 bg-blue-100";
   } else {
     icon = <CheckCircle className="h-4 w-4" />;
-    label = "Synchronisé";
+    label = "Synced";
     colorClass = "text-green-600 bg-green-100";
   }
   

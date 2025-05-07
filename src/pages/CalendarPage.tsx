@@ -23,114 +23,114 @@ const CalendarPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Chargement et abonnement aux événements
+  // Load and subscribe to events
   useEffect(() => {
     setIsLoading(true);
     
-    // S'abonner aux mises à jour en temps réel
+    // Subscribe to real-time updates
     const unsubscribe = supabaseEventService.subscribeToEvents((updatedEvents) => {
       setEvents(updatedEvents);
       setIsLoading(false);
     });
     
-    // Nettoyage
+    // Cleanup
     return () => {
       unsubscribe();
     };
   }, []);
 
-  // Clic sur une date dans le calendrier
+  // Click on a date in calendar
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
     setIsEventFormOpen(true);
   };
 
-  // Clic sur un événement
+  // Click on an event
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
     setIsEventDetailsOpen(true);
   };
 
-  // Ajout d'un nouvel événement
+  // Add a new event
   const handleAddEvent = async (eventData: EventFormData) => {
     try {
       const newEvent = await supabaseEventService.addEvent(eventData);
       
       if (newEvent) {
         toast({
-          title: "Événement créé!",
-          description: "Votre événement a été publié et est visible par tous les utilisateurs.",
+          title: "Event created!",
+          description: "Your event has been published and is visible to all users.",
         });
       } else {
         toast({
-          title: "Erreur",
-          description: "Impossible de créer l'événement. Veuillez réessayer.",
+          title: "Error",
+          description: "Unable to create the event. Please try again.",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error("Erreur lors de l'ajout de l'événement:", error);
+      console.error("Error adding event:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de créer l'événement. Veuillez réessayer.",
+        title: "Error",
+        description: "Unable to create the event. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  // Suppression d'un événement
+  // Delete an event
   const handleDeleteEvent = async (id: string) => {
     try {
       const success = await supabaseEventService.deleteEvent(id);
       
       if (success) {
         toast({
-          title: "Événement supprimé",
-          description: "L'événement a été retiré du calendrier.",
+          title: "Event deleted",
+          description: "The event has been removed from the calendar.",
         });
       } else {
         toast({
-          title: "Erreur",
-          description: "Impossible de supprimer l'événement. Veuillez réessayer.",
+          title: "Error",
+          description: "Unable to delete the event. Please try again.",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error("Erreur lors de la suppression de l'événement:", error);
+      console.error("Error deleting event:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de supprimer l'événement. Veuillez réessayer.",
+        title: "Error",
+        description: "Unable to delete the event. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  // Partager le lien du calendrier
+  // Share calendar link
   const handleShareLink = () => {
     const url = window.location.href;
     
     navigator.clipboard.writeText(url).then(() => {
       toast({
-        title: "Lien copié !",
-        description: "Le lien a été copié dans votre presse-papiers"
+        title: "Link copied!",
+        description: "The link has been copied to your clipboard"
       });
     }).catch(() => {
       toast({
-        title: "Erreur",
-        description: "Impossible de copier le lien",
+        title: "Error",
+        description: "Unable to copy the link",
         variant: "destructive"
       });
     });
   };
 
-  // Afficher un message de chargement
+  // Show loading message
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen">
         <Navbar onAddEvent={() => setIsEventFormOpen(true)} />
         <div className="flex-1 container py-8 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-lg text-muted-foreground">Chargement des événements...</p>
+            <p className="text-lg text-muted-foreground">Loading events...</p>
           </div>
         </div>
       </div>
@@ -144,7 +144,7 @@ const CalendarPage = () => {
       <main className="flex-1 container py-8">
         <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">Calendrier des Événements</h1>
+            <h1 className="text-2xl font-bold">Events Calendar</h1>
             <SyncIndicator />
           </div>
           
@@ -155,15 +155,15 @@ const CalendarPage = () => {
               className="flex items-center gap-2"
             >
               <Share2 size={16} />
-              <span>Partager</span>
+              <span>Share</span>
             </Button>
           </div>
         </div>
         
         <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
-            <TabsTrigger value="calendar">Vue Calendrier</TabsTrigger>
-            <TabsTrigger value="list">Vue Liste</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+            <TabsTrigger value="list">List View</TabsTrigger>
           </TabsList>
           
           <TabsContent value="calendar" className="border rounded-lg p-6">
@@ -183,7 +183,7 @@ const CalendarPage = () => {
         </Tabs>
       </main>
       
-      {/* Formulaires et modales d'événements */}
+      {/* Event forms and modals */}
       <EventForm 
         isOpen={isEventFormOpen}
         onClose={() => setIsEventFormOpen(false)}
