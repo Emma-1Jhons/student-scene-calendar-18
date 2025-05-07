@@ -2,18 +2,16 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Event, EventFormData } from "@/types/eventTypes";
-import EventService from "@/services/eventService";
-import AirtableService from "@/services/airtableService";
+import supabaseEventService from "@/services/supabaseEventService";
 import Navbar from "@/components/Layout/Navbar";
 import CalendarView from "@/components/Calendar/CalendarView";
 import EventsList from "@/components/Calendar/EventsList";
 import EventForm from "@/components/Calendar/EventForm";
 import EventDetails from "@/components/Calendar/EventDetails";
-import AirtableConfigDialog from "@/components/Config/AirtableConfigDialog";
 import SyncIndicator from "@/components/Layout/SyncIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Share2, Database } from "lucide-react";
+import { Share2 } from "lucide-react";
 
 const CalendarPage = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -21,73 +19,25 @@ const CalendarPage = () => {
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
-  const [isAirtableConfigOpen, setIsAirtableConfigOpen] = useState(false);
-  const [isAirtableConfigured, setIsAirtableConfigured] = useState(false);
   const [activeTab, setActiveTab] = useState("calendar");
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  
-  // Référence aux services
-  const eventService = EventService.getInstance();
-  const airtableService = AirtableService.getInstance();
 
-  // Vérifier la configuration d'Airtable au chargement
+  // Chargement et abonnement aux événements
   useEffect(() => {
-    setIsAirtableConfigured(airtableService.isConfigured());
+    setIsLoading(true);
     
-    // Écouteur pour les changements de configuration
-    const configListener = (configured: boolean) => {
-      setIsAirtableConfigured(configured);
-    };
+    // S'abonner aux mises à jour en temps réel
+    const unsubscribe = supabaseEventService.subscribeToEvents((updatedEvents) => {
+      setEvents(updatedEvents);
+      setIsLoading(false);
+    });
     
-    airtableService.addConfigListener(configListener);
-    
+    // Nettoyage
     return () => {
-      airtableService.removeConfigListener(configListener);
+      unsubscribe();
     };
   }, []);
-
-  // Chargement des événements
-  useEffect(() => {
-    const loadEvents = async () => {
-      setIsLoading(true);
-      try {
-        // Forcer une synchronisation au chargement de la page
-        await eventService.forceSyncNow();
-        const allEvents = await eventService.getAllEvents();
-        setEvents(allEvents);
-        console.log(`Chargé ${allEvents.length} événements`);
-      } catch (error) {
-        console.error("Erreur lors du chargement des événements:", error);
-        toast({
-          title: "Erreur de chargement",
-          description: "Impossible de charger les événements. Veuillez réessayer.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadEvents();
-    
-    // Configurer une actualisation périodique des événements
-    const refreshInterval = setInterval(async () => {
-      try {
-        const refreshedEvents = await eventService.getAllEvents();
-        setEvents(refreshedEvents);
-        console.log(`Rafraîchi avec ${refreshedEvents.length} événements`);
-      } catch (error) {
-        console.error("Erreur lors du rafraîchissement des événements:", error);
-      }
-    }, 15000); // Rafraîchir toutes les 15 secondes
-    
-    return () => {
-      clearInterval(refreshInterval);
-      // Nettoyer le service d'événements
-      eventService.cleanup();
-    };
-  }, [toast]);
 
   // Clic sur une date dans le calendrier
   const handleDateClick = (date: Date) => {
@@ -104,15 +54,20 @@ const CalendarPage = () => {
   // Ajout d'un nouvel événement
   const handleAddEvent = async (eventData: EventFormData) => {
     try {
-      const newEvent = await eventService.addEvent(eventData);
-      // Rafraîchir tous les événements pour s'assurer d'avoir les données les plus récentes
-      const refreshedEvents = await eventService.getAllEvents();
-      setEvents(refreshedEvents);
+      const newEvent = await supabaseEventService.addEvent(eventData);
       
-      toast({
-        title: "Événement créé!",
-        description: "Votre événement a été publié et sera visible par tous les utilisateurs après synchronisation (max: 1 minute)",
-      });
+      if (newEvent) {
+        toast({
+          title: "Événement créé!",
+          description: "Votre événement a été publié et est visible par tous les utilisateurs.",
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer l'événement. Veuillez réessayer.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de l'ajout de l'événement:", error);
       toast({
@@ -126,15 +81,20 @@ const CalendarPage = () => {
   // Suppression d'un événement
   const handleDeleteEvent = async (id: string) => {
     try {
-      await eventService.deleteEvent(id);
-      // Rafraîchir tous les événements pour s'assurer d'avoir les données les plus récentes
-      const refreshedEvents = await eventService.getAllEvents();
-      setEvents(refreshedEvents);
+      const success = await supabaseEventService.deleteEvent(id);
       
-      toast({
-        title: "Événement supprimé",
-        description: "L'événement sera retiré du calendrier pour tous les utilisateurs après synchronisation (max: 1 minute)",
-      });
+      if (success) {
+        toast({
+          title: "Événement supprimé",
+          description: "L'événement a été retiré du calendrier.",
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de supprimer l'événement. Veuillez réessayer.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de la suppression de l'événement:", error);
       toast({
@@ -163,11 +123,6 @@ const CalendarPage = () => {
     });
   };
 
-  // Ouvrir la configuration Airtable
-  const handleOpenAirtableConfig = () => {
-    setIsAirtableConfigOpen(true);
-  };
-
   // Afficher un message de chargement
   if (isLoading) {
     return (
@@ -194,17 +149,6 @@ const CalendarPage = () => {
           </div>
           
           <div className="flex flex-wrap gap-3">
-            <Button 
-              onClick={handleOpenAirtableConfig}
-              variant="outline" 
-              className="flex items-center gap-2"
-            >
-              <Database size={16} />
-              <span>
-                {isAirtableConfigured ? "Config. Airtable" : "Configurer Airtable"}
-              </span>
-            </Button>
-            
             <Button 
               onClick={handleShareLink}
               variant="outline"
@@ -237,19 +181,6 @@ const CalendarPage = () => {
             />
           </TabsContent>
         </Tabs>
-        
-        {!isAirtableConfigured && events.length === 0 && (
-          <div className="mt-8 p-6 border border-dashed rounded-lg flex flex-col items-center justify-center text-center">
-            <Database size={32} className="text-muted-foreground mb-2" />
-            <h3 className="font-medium text-lg">Configurez Airtable pour une synchronisation en temps réel</h3>
-            <p className="text-muted-foreground mt-2 max-w-lg">
-              Pour que les événements soient visibles par tous les utilisateurs, configurez Airtable comme source de données centralisée.
-            </p>
-            <Button onClick={handleOpenAirtableConfig} className="mt-4">
-              Configurer Airtable
-            </Button>
-          </div>
-        )}
       </main>
       
       {/* Formulaires et modales d'événements */}
@@ -265,11 +196,6 @@ const CalendarPage = () => {
         isOpen={isEventDetailsOpen}
         onClose={() => setIsEventDetailsOpen(false)}
         onDelete={handleDeleteEvent}
-      />
-      
-      <AirtableConfigDialog
-        isOpen={isAirtableConfigOpen}
-        onClose={() => setIsAirtableConfigOpen(false)}
       />
     </div>
   );
